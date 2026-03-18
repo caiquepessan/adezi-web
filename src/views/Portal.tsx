@@ -1,9 +1,10 @@
 import { useAuth } from '../contexts/AuthContext'
 import { Link } from 'react-router-dom'
-import { Monitor, ShoppingCart, User, Download, Smartphone, Crown, ShieldCheck, QrCode, ArrowRight, Activity } from 'lucide-react'
+import { Monitor, ShoppingCart, User, Download, Smartphone, Crown, ShieldCheck, QrCode, ArrowRight, Activity, Share2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 export function Portal() {
-    const { user } = useAuth()
+    const { user, empresaId } = useAuth()
 
     return (
         <div className="animate-in fade-in duration-700 h-full flex flex-col relative">
@@ -18,7 +19,7 @@ export function Portal() {
                         Sistema Online
                     </div>
                     <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-white/50">
-                        Bem-vindo, {user?.username}
+                        Bem-vindo, {user?.username || 'Administrador'}
                     </h1>
                     <p className="text-muted-foreground text-lg max-w-2xl">
                         Acesse rapidamente o Ponto de Venda, gerencie sua assinatura e baixe aplicativos na sua central de controle.
@@ -39,13 +40,26 @@ export function Portal() {
                         <p className="text-muted-foreground mb-8 text-lg max-w-md">
                             Acesse o sistema de frente de caixa web fluido, rápido e focado em produtividade para lançar suas vendas em segundos.
                         </p>
-                        <Link 
-                            to="/pdv" 
-                            className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-white/90 transition-all shadow-xl hover:shadow-2xl hover:shadow-white/20 active:scale-95"
-                        >
-                            Acessar PDV Web
-                            <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
-                        </Link>
+                        <div className="flex flex-wrap gap-4 mt-6 relative z-10">
+                            <Link 
+                                to={`/${empresaId}/pdv`} 
+                                className="inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-black font-bold text-lg hover:bg-white/90 transition-all shadow-xl hover:shadow-2xl hover:shadow-white/20 active:scale-95"
+                            >
+                                Acessar PDV Web
+                                <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
+                            </Link>
+
+                            <button 
+                                onClick={() => {
+                                    navigator.clipboard.writeText(`${window.location.origin}/${empresaId}/pdv`);
+                                    toast.success('Link do PDV copiado! Lembre-se que o dispositivo precisa estar autorizado por você.');
+                                }}
+                                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/5 border border-white/10 text-white font-medium hover:bg-white/10 transition-all active:scale-95"
+                            >
+                                <Share2 size={18} />
+                                Copiar Link de Acesso
+                            </button>
+                        </div>
                     </div>
                     {/* Decorative element */}
                     <div className="hidden md:block absolute right-0 bottom-0 pointer-events-none translate-x-1/4 translate-y-1/4 opacity-10 group-hover:opacity-20 transition-opacity duration-700">

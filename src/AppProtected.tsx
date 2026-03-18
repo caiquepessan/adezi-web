@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Sidebar } from './components/layout/Sidebar'
 
 import { Portal } from './views/Portal'
@@ -22,9 +22,10 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 
 function AppContent() {
   useOnlineStatus();
-  const { user, loading, hasPermission } = useAuth();
+  const { user, isOwner, loading, hasPermission, empresaId } = useAuth();
   const [supabaseLoading, setSupabaseLoading] = useState(true);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -52,7 +53,7 @@ function AppContent() {
   }
 
   // Intercept the POS login screen for users without an active PIN auth
-  if (!user) {
+  if (!user && !(isOwner && location.pathname === '/portal')) {
     return <POSLogin />;
   }
 
@@ -64,7 +65,8 @@ function AppContent() {
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
           <Routes>
             <Route path="portal" element={<Portal />} />
-            <Route path="pdv" element={<PDV />} />
+            <Route path=":empresa_id/pdv" element={<PDV />} />
+            <Route path="pdv" element={empresaId ? <Navigate to={`/${empresaId}/pdv`} replace /> : <Navigate to="/portal" replace />} />
             
             {hasPermission('ver_faturamento') ? (
               <Route path="dashboard" element={<Dashboard />} />
@@ -78,8 +80,8 @@ function AppContent() {
             {(hasPermission('historico_ver') || hasPermission('todas')) && <Route path="historico-vendas" element={<HistoricoVendas />} />}
             {(hasPermission('todas')) && <Route path="consumo" element={<Consumo />} />}
             {(hasPermission('registro_atividades') || hasPermission('todas')) && <Route path="registro-atividades" element={<RegistroAtividades />} />}
-            {user.is_admin && <Route path="configuracoes" element={<Configuracoes />} />}
-            {user.is_admin && <Route path="usuarios" element={<Usuarios />} />}
+            {user?.is_admin && <Route path="configuracoes" element={<Configuracoes />} />}
+            {user?.is_admin && <Route path="usuarios" element={<Usuarios />} />}
             
             <Route path="*" element={<Navigate to="/portal" replace />} />
           </Routes>

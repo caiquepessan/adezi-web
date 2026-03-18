@@ -1,15 +1,35 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOnlineStatus } from '../hooks/useOnlineStatus';
-import { Lock, User, LogIn, WifiOff } from 'lucide-react';
+import { Lock, User, LogIn } from 'lucide-react';
 import { Titlebar } from '../components/layout/Titlebar';
+import { useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
 
 export function Login() {
     const [username, setUsername] = useState('');
     const [senha, setSenha] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login, loginAsGuest } = useAuth();
+    const [empresaNome, setEmpresaNome] = useState<string | null>(null);
+    const { login } = useAuth();
     const { isOnline } = useOnlineStatus();
+    const location = useLocation();
+
+    useEffect(() => {
+        const fetchEmpresa = async () => {
+            const parts = location.pathname.split('/');
+            // Expecting something like /uuid-1234/pdv
+            // parts[0] is "", parts[1] is id, parts[2] is 'pdv'
+            if (parts.length >= 3 && parts[2] === 'pdv') {
+                const urlId = parts[1];
+                const { data } = await supabase.from('empresa').select('nome').eq('id', urlId).single();
+                if (data) {
+                    setEmpresaNome(data.nome);
+                }
+            }
+        };
+        fetchEmpresa();
+    }, [location.pathname]);
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -31,11 +51,10 @@ export function Login() {
                 <div className="glass-panel w-full max-w-md p-8 rounded-2xl animate-in custom-zoom-in">
 
                     <div className="text-center mb-8">
-                        <div className="w-20 h-20 bg-primary/10 flex items-center justify-center rounded-2xl mx-auto mb-4 border border-primary/20 shadow-[0_0_15px_rgba(255,191,0,0.2)] overflow-hidden">
-                            <img src="./icon.png" alt="ADEZI" className="w-16 h-16 object-contain drop-shadow-md" />
+                        <div className="flex justify-center mb-4">
+                            <img src="/logo-full.svg" alt="ADEZI" className="h-10 object-contain drop-shadow-lg" />
                         </div>
-                        <h1 className="text-3xl font-black tracking-tighter">ADEZI</h1>
-                        <p className="text-muted-foreground mt-2">Acesse o sistema</p>
+                        <p className="text-muted-foreground mt-2">{empresaNome ? `Acesso: ${empresaNome}` : 'Acesse o sistema'}</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-4">
@@ -84,24 +103,9 @@ export function Login() {
                     </form>
 
                     <div className="mt-6 flex flex-col items-center">
-                        <div className="flex items-center gap-4 w-full mb-6">
-                            <div className="h-px bg-white/10 flex-1" />
-                            <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">OU</span>
-                            <div className="h-px bg-white/10 flex-1" />
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={loginAsGuest}
-                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 transition-colors text-sm font-semibold text-muted-foreground hover:text-white"
-                        >
-                            <WifiOff size={16} />
-                            Acessar como Visitante (Offline)
-                        </button>
-
                         {!isOnline && (
                             <p className="text-xs text-amber-500 mt-3 text-center flex items-center gap-1 justify-center">
-                                Você está sem internet. Use o modo visitante para acessar o PDV.
+                                Você está sem internet. O sistema web precisa de conexão para fazer login inicial.
                             </p>
                         )}
                     </div>

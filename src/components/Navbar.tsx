@@ -28,11 +28,8 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center">
           
-          <Link to="/" className="flex items-center space-x-2 group">
-            <div className="bg-primary/20 p-2 rounded-xl group-hover:bg-primary/30 transition-colors">
-              <Wine className="w-6 h-6 text-primary" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight">ADEZI</span>
+          <Link to="/" className="flex items-center group">
+            <img src="/logo-full.svg" alt="Adezi Logo" className="h-8 transition-transform group-hover:scale-105" />
           </Link>
 
           {/* Desktop Nav */}

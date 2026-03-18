@@ -4,7 +4,7 @@ import { LogOut, User } from 'lucide-react'
 
 export function Sidebar() {
     const location = useLocation()
-    const { user, logout, hasPermission } = useAuth()
+    const { user, logout, hasPermission, empresaId } = useAuth()
 
     const isActive = (path: string) => location.pathname === path
 
@@ -14,6 +14,9 @@ export function Sidebar() {
 
     return (
         <div className="w-64 border-r border-white/5 bg-card/30 flex flex-col h-full shrink-0">
+            <div className="p-6 pb-2 border-b border-white/5 flex justify-center">
+                <img src="/logo-full.svg" alt="Adezi Logo" className="h-7 opacity-90" />
+            </div>
             <div className="p-6 flex-1 overflow-y-auto">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-4">Principal</p>
                 <nav className="space-y-2">
@@ -25,7 +28,7 @@ export function Sidebar() {
                             Dashboard
                         </Link>
                     )}
-                    <Link to="/pdv" className={isActive('/pdv') ? activeClass : inactiveClass}>
+                    <Link to={`/${empresaId}/pdv`} className={isActive(`/${empresaId}/pdv`) ? activeClass : inactiveClass}>
                         Ponto de Venda (PDV)
                     </Link>
                     {(hasPermission('historico_ver') || hasPermission('todas')) && (

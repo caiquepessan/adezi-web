@@ -68,12 +68,9 @@ const Register = () => {
         transition={{ duration: 0.5 }}
         className="w-full max-w-md relative z-10"
       >
-        <div className="flexjustify-center mb-8 flex items-center justify-center">
-          <Link to="/" className="flex items-center space-x-2 group">
-             <div className="bg-primary/20 p-2 rounded-xl group-hover:bg-primary/30 transition-colors">
-              <Wine className="w-8 h-8 text-primary" />
-            </div>
-            <span className="text-3xl font-bold tracking-tight">ADEZI</span>
+        <div className="flex justify-center mb-8 items-center">
+          <Link to="/" className="flex items-center group">
+             <img src="/logo-full.svg" alt="Adezi Logo" className="h-10 transition-transform group-hover:scale-105" />
           </Link>
         </div>
 

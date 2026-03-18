@@ -17,7 +17,7 @@ export function Titlebar() {
         <div className="h-10 bg-background/80 backdrop-blur-md border-b border-white/10 flex items-center justify-between px-4 select-none" style={{ WebkitAppRegion: 'drag' } as any}>
             <div className="flex items-center gap-2 text-primary font-semibold text-sm">
                 <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                ADEGA DOS MULEKES
+                ADEZI
 
                 <div className={`ml-4 flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${isOnline ? 'bg-green-500/10 text-green-500' : 'bg-orange-500/10 text-orange-400'
                     }`}>

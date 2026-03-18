@@ -1,0 +1,27 @@
+<svg width="800" height="200" viewBox="0 0 800 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gradOrangeFull" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ea580c"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#fcd34d"/>
+    </linearGradient>
+    <linearGradient id="gradGlassFull" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Logo Mark Scaled and translated to the left -->
+  <g transform="translate(20, 20) scale(0.3125)">
+    <path d="M256 80 L110 400 L185 400 L256 220 L256 80 Z" fill="url(#gradOrangeFull)"/>
+    <path d="M256 80 L256 220 L327 400 L402 400 L256 80 Z" fill="url(#gradGlassFull)" stroke="#ffffff" stroke-opacity="0.2" stroke-width="2" />
+    <path d="M200 300 C256 350, 256 350, 312 300 L256 200 Z" fill="url(#gradOrangeFull)"/>
+    <circle cx="256" cy="70" r="16" fill="#ffffff"/>
+  </g>
+
+  <!-- Text -->
+  <text x="210" y="145" font-family="Inter, -apple-system, sans-serif" font-weight="900" font-size="110" fill="#ffffff" letter-spacing="-3">ADEZI</text>
+  
+  <!-- Accent Dot -->
+  <circle cx="560" cy="140" r="14" fill="url(#gradOrangeFull)" />
+</svg>

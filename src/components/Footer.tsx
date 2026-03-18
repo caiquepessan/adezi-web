@@ -9,9 +9,8 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-2 mb-4">
-              <Wine className="w-8 h-8 text-primary" />
-              <div className="text-sm font-semibold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-primary to-orange-400">ADEZI</div>
+            <div className="mb-6">
+              <img src="/logo-full.svg" alt="Adezi Logo" className="h-12" />
             </div>
             <p className="text-muted-foreground w-3/4 mb-6">
               O sistema de gestão definitivo para adegas e distribuidoras de bebidas. Rápido, offline e extremamente fácil de usar.
