@@ -64,7 +64,11 @@ function AppContent() {
         <main className="flex-1 bg-background p-8 overflow-y-auto relative glass-panel m-2 rounded-xl">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent pointer-events-none" />
           <Routes>
-            <Route path="portal" element={<Portal />} />
+            {user?.id === 'owner' ? (
+              <Route path="portal" element={<Portal />} />
+            ) : (
+              <Route path="portal" element={<Navigate to={`/${empresaId}/pdv`} replace />} />
+            )}
             <Route path=":empresa_id/pdv" element={<PDV />} />
             <Route path="pdv" element={empresaId ? <Navigate to={`/${empresaId}/pdv`} replace /> : <Navigate to="/portal" replace />} />
             

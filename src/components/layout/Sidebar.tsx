@@ -20,9 +20,11 @@ export function Sidebar() {
             <div className="p-6 flex-1 overflow-y-auto">
                 <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold mb-4">Principal</p>
                 <nav className="space-y-2">
-                    <Link to="/portal" className={isActive('/portal') ? activeClass : inactiveClass}>
-                        Início
-                    </Link>
+                    {user?.id === 'owner' && (
+                        <Link to="/portal" className={isActive('/portal') ? activeClass : inactiveClass}>
+                            Início
+                        </Link>
+                    )}
                     {hasPermission('ver_faturamento') && (
                         <Link to="/dashboard" className={isActive('/dashboard') ? activeClass : inactiveClass}>
                             Dashboard

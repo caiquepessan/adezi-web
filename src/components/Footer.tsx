@@ -1,5 +1,5 @@
 
-import { Wine, Instagram, Twitter, Github } from 'lucide-react';
+import { Instagram, Twitter, Github } from 'lucide-react';
 
 const Footer = () => {
   return (
