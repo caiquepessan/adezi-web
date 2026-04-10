@@ -1,9 +1,35 @@
-import { X, Minus, Square, Wifi, WifiOff } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Minus, Square, Copy, Wifi, WifiOff } from 'lucide-react';
 import { useOnlineStatus } from '../../hooks/useOnlineStatus';
 export function Titlebar() {
-    const handleMinimize = () => (window as any).ipcRenderer?.send('window-minimize');
-    const handleMaximize = () => (window as any).ipcRenderer?.send('window-maximize');
+    const [isMaximized, setIsMaximized] = useState(false);
+
+    useEffect(() => {
+        const ipc = (window as any).ipcRenderer;
+        if (ipc) {
+            const handleMaximized = () => setIsMaximized(true);
+            const handleUnmaximized = () => setIsMaximized(false);
+
+            ipc.on('window-maximized', handleMaximized);
+            ipc.on('window-unmaximized', handleUnmaximized);
+
+            return () => {
+                ipc.off('window-maximized', handleMaximized);
+                ipc.off('window-unmaximized', handleUnmaximized);
+            };
+        }
+    }, []);
+
+    const handleMinimize = () => {
+        console.log('Titlebar: Minimize clicked');
+        (window as any).ipcRenderer?.send('window-minimize');
+    };
+    const handleMaximize = () => {
+        console.log('Titlebar: Maximize clicked');
+        (window as any).ipcRenderer?.send('window-maximize');
+    };
     const handleClose = () => {
+        console.log('Titlebar: Close clicked');
         if ((window as any).ipcRenderer) {
             (window as any).ipcRenderer.send('window-close');
         } else {
@@ -40,7 +66,7 @@ export function Titlebar() {
                     <Minus size={16} />
                 </button>
                 <button onClick={handleMaximize} className="p-1.5 hover:bg-white/10 rounded-md transition-colors text-muted-foreground hover:text-white">
-                    <Square size={14} />
+                    {isMaximized ? <Copy size={14} /> : <Square size={14} />}
                 </button>
                 <button onClick={handleClose} className="p-1.5 hover:bg-red-500/80 rounded-md transition-colors text-muted-foreground hover:text-white">
                     <X size={16} />

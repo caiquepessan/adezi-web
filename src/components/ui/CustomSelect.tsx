@@ -34,13 +34,36 @@ export function CustomSelect({ value, onChange, options, placeholder = 'Selecion
 
     useEffect(() => {
         function handleClickOutside(event: MouseEvent) {
-            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-                setSearch('');
+            const target = event.target as HTMLElement;
+            
+            // 1. Always stay open if we click inside our own component
+            if (containerRef.current && containerRef.current.contains(target)) {
+                return;
             }
+
+            // 2. Use elementFromPoint to robustly detect if the click is within the modal.
+            // This works even when clicking scrollbars which sometimes report 'body' as the target.
+            const elementAtPoint = document.elementFromPoint(event.clientX, event.clientY);
+            const isInsideModal = elementAtPoint?.closest('.glass-panel');
+            
+            if (isInsideModal) {
+                // If we are inside the combo modal, ONLY close if we clicked something clearly interactive
+                // like another list's button, or a modal action button.
+                const interactive = target.closest('button, input');
+                if (interactive && !containerRef.current?.contains(interactive)) {
+                    setIsOpen(false);
+                    setSearch('');
+                }
+                // Otherwise (scrolling, clicking background), stay open.
+                return;
+            }
+
+            // 3. If we clicked outside the modal entirely, close.
+            setIsOpen(false);
+            setSearch('');
         }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
+        document.addEventListener('mouseup', handleClickOutside);
+        return () => document.removeEventListener('mouseup', handleClickOutside);
     }, []);
 
     useEffect(() => {
@@ -89,6 +112,8 @@ export function CustomSelect({ value, onChange, options, placeholder = 'Selecion
                         exit={{ opacity: 0, y: -5, scale: 0.95 }}
                         transition={{ duration: 0.15, ease: "easeOut" }}
                         className="absolute z-50 top-full left-0 w-full mt-1 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1"
+                        onMouseDown={(e) => e.nativeEvent.stopPropagation()}
+                        onMouseUp={(e) => e.nativeEvent.stopPropagation()}
                     >
                         <div className="px-2 py-2 border-b border-white/5">
                             <input
@@ -98,7 +123,8 @@ export function CustomSelect({ value, onChange, options, placeholder = 'Selecion
                                 onChange={(e) => setSearch(e.target.value)}
                                 placeholder="Buscar..."
                                 className="w-full bg-black/40 border border-white/10 rounded-md px-3 py-1.5 text-xs text-white outline-none focus:border-primary/50 transition-all"
-                                onClick={(e) => e.stopPropagation()}
+                                onMouseDown={(e) => e.nativeEvent.stopPropagation()}
+                                onMouseUp={(e) => e.nativeEvent.stopPropagation()}
                             />
                         </div>
 

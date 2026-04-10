@@ -6,6 +6,7 @@ import { Plus, Trash2, PackagePlus, X, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useConfirm } from '../components/ui/ConfirmDialog';
 import { CustomSelect } from '../components/ui/CustomSelect';
+import { CustomCheckbox } from '../components/ui/CustomCheckbox';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { registrarLog } from '../lib/logger';
@@ -41,6 +42,9 @@ interface DoseParams {
     volume_garrafa: number;
     volume_dose: number;
     doses_restantes_abertas?: number;
+    is_dynamic?: boolean;
+    grupo_nome?: string;
+    _ui_group_id?: string;
 }
 
 interface CaixaParams {
@@ -71,6 +75,7 @@ export function Estoque() {
     const [comboItensFixos, setComboItensFixos] = useState<ComboItemFixo[]>([]);
     const [doseParams, setDoseParams] = useState<DoseParams[]>([]);
     const [caixaParams, setCaixaParams] = useState<CaixaParams>({ produto_unidade_id: '', quantidade_na_caixa: 15 });
+    const [isDynamicDose, setIsDynamicDose] = useState(false);
 
     const [reqCat, setReqCat] = useState('');
     const [reqQtd, setReqQtd] = useState(1);
@@ -217,7 +222,8 @@ export function Estoque() {
         });
         setComboRequisitos([]);
         setComboItensFixos([]);
-        setDoseParams([{ produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50 }]);
+        setDoseParams([{ _ui_group_id: 'group_1', produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50, grupo_nome: '' }]);
+        setIsDynamicDose(false);
     }
 
     function handleAddNew() {
@@ -233,7 +239,8 @@ export function Estoque() {
         // Clear all states
         setComboRequisitos([]);
         setComboItensFixos([]);
-        setDoseParams([{ produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50 }]); // Changed to array
+        setDoseParams([{ _ui_group_id: 'group_1', produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50, grupo_nome: '' }]); // Changed to array
+        setIsDynamicDose(false);
         setCaixaParams({ produto_unidade_id: '', quantidade_na_caixa: 15 });
         setShowModal(true);
     }
@@ -255,6 +262,7 @@ export function Estoque() {
         setComboRequisitos([]);
         setComboItensFixos([]);
         setDoseParams([]); // Changed to array
+        setIsDynamicDose(false);
         setCaixaParams({ produto_unidade_id: '', quantidade_na_caixa: 15 });
 
         if (p.categoria === 'Combo') {
@@ -264,7 +272,24 @@ export function Estoque() {
             if (fixos) setComboItensFixos(fixos.map(f => ({ produto_id: f.produto_id, quantidade: f.quantidade })));
         } else if (p.categoria === 'Dose' || p.categoria === 'Shot') {
             const { data } = await supabase.from('doses').select('*').eq('produto_dose_id', p.id); // Removed .single()
-            if (data) setDoseParams(data); // Set data as array
+            if (data && data.length > 0) {
+                let currentGroupId = 0;
+                const nameToGroupId: Record<string, string> = {};
+                
+                const finalData = data.map((d: any) => {
+                    const gName = d.grupo_nome || '';
+                    if (!nameToGroupId[gName]) {
+                        nameToGroupId[gName] = 'group_' + currentGroupId++;
+                    }
+                    return { ...d, _ui_group_id: nameToGroupId[gName] };
+                });
+                
+                setDoseParams(finalData); // Set data as array
+                setIsDynamicDose(finalData[0].is_dynamic || false);
+            } else {
+                setDoseParams([{ _ui_group_id: 'group_1', produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50, grupo_nome: '' }]);
+                setIsDynamicDose(false);
+            }
         } else if (p.categoria === 'Caixa') {
             const { data } = await supabase.from('produto_caixas').select('*').eq('produto_caixa_id', p.id).single();
             if (data) setCaixaParams({ produto_unidade_id: data.produto_unidade_id, quantidade_na_caixa: data.quantidade_na_caixa });
@@ -345,7 +370,9 @@ export function Estoque() {
                         produto_dose_id: productId,
                         produto_garrafa_id: d.produto_garrafa_id,
                         volume_garrafa: d.volume_garrafa,
-                        volume_dose: d.volume_dose
+                        volume_dose: d.volume_dose,
+                        is_dynamic: isDynamicDose,
+                        grupo_nome: d.grupo_nome || null
                     }));
 
                 if (dosesToInsert.length > 0) {
@@ -757,7 +784,7 @@ export function Estoque() {
                             </div>
 
                             {/* DYNAMIC FORMS BASED ON CATEGORY */}
-                            {(formData.categoria === 'Combo' || formData.categoria === 'Dose') && (
+                            {['Combo', 'Dose', 'Shot'].includes(formData.categoria || '') && (
                                 <div className="space-y-4">
                                     <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
                                         <h3 className="font-bold text-primary">Requisitos do Combo (Categorias)</h3>
@@ -883,47 +910,118 @@ export function Estoque() {
                                     <div className="flex justify-between items-center">
                                         <h3 className="font-bold text-blue-400">Configuração de Fracionamento</h3>
                                         <button 
-                                            onClick={() => setDoseParams([...doseParams, { produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50 }])}
+                                            type="button"
+                                            onClick={() => setDoseParams([...doseParams, { _ui_group_id: 'group_' + Math.random().toString(36).substr(2, 9), produto_garrafa_id: '', volume_garrafa: 1000, volume_dose: 50, grupo_nome: '' }])}
                                             className="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-1 rounded hover:bg-blue-500/30 transition-colors font-bold uppercase"
                                         >
-                                            + Adicionar Componente
+                                            + Adicionar Novo Grupo
                                         </button>
                                     </div>
-                                    <p className="text-xs text-muted-foreground">O estoque consumirá todas as garrafas matrizes configuradas.</p>
+                                    <div className="flex items-center gap-2 mt-2 mb-2 p-2 bg-black/20 rounded border border-white/5">
+                                        <CustomCheckbox 
+                                            checked={isDynamicDose} 
+                                            onChange={setIsDynamicDose} 
+                                        />
+                                        <label className="text-sm font-bold text-white cursor-pointer select-none" onClick={() => setIsDynamicDose(!isDynamicDose)}>
+                                            Dose Dinâmica (Sabor escolhido na hora da venda)
+                                        </label>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        {isDynamicDose 
+                                            ? "No PDV, as garrafas com o mesmo Nome do Grupo serão agrupadas para o atendente escolher UMA de cada grupo." 
+                                            : "O estoque consumirá TODAS as garrafas configuradas simultaneamente (Receita Mista)."}
+                                    </p>
 
                                     <div className="space-y-4">
-                                        {doseParams.map((dose, idx) => (
-                                            <div key={idx} className="p-3 bg-black/20 rounded-lg border border-white/5 space-y-3 relative group/dose">
-                                                {doseParams.length > 1 && (
+                                        {(() => {
+                                            const grouped = Array.from(doseParams.reduce((map, dose) => {
+                                                const gid = dose._ui_group_id || 'default';
+                                                if (!map.has(gid)) map.set(gid, []);
+                                                map.get(gid)!.push(dose);
+                                                return map;
+                                            }, new Map<string, DoseParams[]>()).entries());
+
+                                            return grouped.map(([gid, items]) => (
+                                            <div key={gid} className="p-4 bg-black/30 rounded-lg border border-white/10 space-y-4 relative">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex flex-col flex-1 mr-4">
+                                                        <label className="text-[10px] font-bold block mb-1 uppercase text-primary">Nome do Grupo {isDynamicDose ? `(Ex: Bebida, Energético)` : `(Opcional)`}</label>
+                                                        <input 
+                                                            type="text" 
+                                                            value={items[0]?.grupo_nome || ''} 
+                                                            onChange={e => {
+                                                                const newVal = e.target.value;
+                                                                setDoseParams(prev => prev.map(d => d._ui_group_id === gid ? { ...d, grupo_nome: newVal } : d));
+                                                            }}
+                                                            onMouseDown={e => e.stopPropagation()}
+                                                            onKeyDown={e => e.stopPropagation()}
+                                                            className="w-full bg-background border border-border rounded px-2 py-1 text-sm outline-none focus:border-blue-500 font-bold" 
+                                                            placeholder="Deixe em branco p/ item solto" 
+                                                        />
+                                                    </div>
                                                     <button 
-                                                        onClick={() => setDoseParams(doseParams.filter((_, i) => i !== idx))}
-                                                        className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-red-400 opacity-0 group-hover/dose:opacity-100 transition-all"
+                                                        type="button"
+                                                        onClick={() => setDoseParams(doseParams.filter(d => d._ui_group_id !== gid))}
+                                                        className="p-2 text-red-400 hover:bg-red-400/10 rounded transition-colors"
+                                                        title="Remover Grupo inteiro"
                                                     >
-                                                        <Trash2 size={14} />
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+
+                                                <div className="space-y-3 pl-2 border-l-2 border-primary/20">
+                                                    {items.map((dose, idx) => (
+                                                        <div key={idx} className="relative group/dose bg-black/20 p-3 rounded-lg border border-white/5">
+                                                            {items.length > 1 && (
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => setDoseParams(doseParams.filter(orig => orig !== dose))}
+                                                                    className="absolute top-2 right-2 p-1 text-muted-foreground hover:text-red-400 opacity-0 group-hover/dose:opacity-100 transition-all"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            )}
+                                                            <div>
+                                                                <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Garrafa Matriz #{idx + 1}</label>
+                                                                <CustomSelect 
+                                                                    value={dose.produto_garrafa_id} 
+                                                                    onChange={val => setDoseParams(prev => prev.map(d => d === dose ? { ...d, produto_garrafa_id: val } : d))} 
+                                                                    placeholder="Selecione a Garrafa..."
+                                                                    options={produtos.filter(p => p.id !== formData.id && !['Combo', 'Shot', 'Dose', 'Caixa'].includes(p.categoria)).map(p => ({ value: p.id, label: p.nome }))}
+                                                                />
+                                                            </div>
+                                                            <div className="grid grid-cols-2 gap-3 mt-3">
+                                                                <div>
+                                                                    <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Volume Garrafa (ml)</label>
+                                                                    <input required type="number" min="1" value={dose.volume_garrafa} onChange={e => {
+                                                                        const val = parseInt(e.target.value) || 0;
+                                                                        setDoseParams(prev => prev.map(d => d === dose ? { ...d, volume_garrafa: val } : d));
+                                                                    }} className="w-full bg-background border border-border rounded px-2 py-1 text-xs outline-none focus:border-blue-500" />
+                                                                </div>
+                                                                <div>
+                                                                    <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Volume Dose (ml)</label>
+                                                                    <input required type="number" min="1" value={dose.volume_dose} onChange={e => {
+                                                                        const val = parseInt(e.target.value) || 0;
+                                                                        setDoseParams(prev => prev.map(d => d === dose ? { ...d, volume_dose: val } : d));
+                                                                    }} className="w-full bg-background border border-border rounded px-2 py-1 text-xs outline-none focus:border-blue-500" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+
+                                                {items.length > 0 && (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setDoseParams([...doseParams, { _ui_group_id: gid, grupo_nome: items[0].grupo_nome, produto_garrafa_id: '', volume_garrafa: items[0].volume_garrafa, volume_dose: items[0].volume_dose }])}
+                                                        className="w-full text-xs bg-white/5 hover:bg-white/10 text-white font-bold py-2 rounded transition-colors uppercase tracking-widest mt-2"
+                                                    >
+                                                        + Adicionar Garrafa Neste Grupo
                                                     </button>
                                                 )}
-                                                
-                                                <div>
-                                                    <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Garrafa Matriz #{idx + 1}</label>
-                                                    <CustomSelect 
-                                                        value={dose.produto_garrafa_id} 
-                                                        onChange={val => setDoseParams(doseParams.map((d, i) => i === idx ? { ...d, produto_garrafa_id: val } : d))} 
-                                                        placeholder="Selecione a Garrafa..."
-                                                        options={produtos.filter(p => p.id !== formData.id && !['Combo', 'Shot', 'Dose', 'Caixa'].includes(p.categoria)).map(p => ({ value: p.id, label: p.nome }))}
-                                                    />
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-3">
-                                                    <div>
-                                                        <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Volume Garrafa (ml)</label>
-                                                        <input required type="number" min="1" value={dose.volume_garrafa} onChange={e => setDoseParams(doseParams.map((d, i) => i === idx ? { ...d, volume_garrafa: parseInt(e.target.value) || 0 } : d))} className="w-full bg-background border border-border rounded px-2 py-1 text-xs outline-none focus:border-blue-500" />
-                                                    </div>
-                                                    <div>
-                                                        <label className="text-[10px] font-bold block mb-1 uppercase text-muted-foreground">Volume Dose (ml)</label>
-                                                        <input required type="number" min="1" value={dose.volume_dose} onChange={e => setDoseParams(doseParams.map((d, i) => i === idx ? { ...d, volume_dose: parseInt(e.target.value) || 0 } : d))} className="w-full bg-background border border-border rounded px-2 py-1 text-xs outline-none focus:border-blue-500" />
-                                                    </div>
-                                                </div>
                                             </div>
-                                        ))}
+                                            ));
+                                        })()}
                                     </div>
                                 </div>
                             )}

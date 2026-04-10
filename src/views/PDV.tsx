@@ -180,11 +180,26 @@ export function PDV() {
     }, [selectedIndex]);
 
     function addToCart(produto: Produto) {
-        if (['Combo', 'Dose'].includes(produto.categoria)) {
-            const reqs = allReqs.filter(r => r.combo_id === produto.id);
-            if (reqs.length > 0) {
-                setActiveCombo(produto);
-                setTempSelections(reqs.map(r => ({ requirement_name: r.categoria_nome, items: [] })));
+        const isDoseOrShot = ['Dose', 'Shot'].includes(produto.categoria);
+        const doseOptions = allDoses.filter(d => d.produto_dose_id === produto.id);
+        const reqs = allReqs.filter(r => r.combo_id === produto.id);
+        const isDynamic = doseOptions.length > 0 && doseOptions[0].is_dynamic;
+
+        if (['Combo'].includes(produto.categoria) || (isDoseOrShot && (isDynamic || reqs.length > 0))) {
+            setActiveCombo(produto);
+            const selections: { requirement_name: string; items: any[] }[] = [];
+            
+            // Add dose groups if dynamic
+            if (isDoseOrShot && isDynamic) {
+                const gruposUnicos = Array.from(new Set(doseOptions.map(d => d.grupo_nome || 'Opção Única')));
+                gruposUnicos.forEach(g => selections.push({ requirement_name: g, items: [] }));
+            }
+            
+            // Add category requirements
+            reqs.forEach(r => selections.push({ requirement_name: r.categoria_nome, items: [] }));
+
+            if (selections.length > 0) {
+                setTempSelections(selections);
                 setShowComboModal(true);
                 return;
             }
@@ -193,8 +208,7 @@ export function PDV() {
         setCart(prev => {
             const exists = prev.find(item => item.id === produto.id);
             if (exists) {
-                // For combos, we might want to check if the selection matches, but for now let's just stack if no selections
-                if (!['Combo', 'Dose', 'Shot', 'Caixa'].includes(produto.categoria) && exists.qtd_carrinho >= produto.estoque_atual) return prev; // Limit
+                if (!['Combo', 'Dose', 'Shot', 'Caixa'].includes(produto.categoria) && exists.qtd_carrinho >= produto.estoque_atual) return prev; 
                 return prev.map(item => item.id === produto.id ? { ...item, qtd_carrinho: item.qtd_carrinho + 1 } : item);
             }
             return [...prev, { ...produto, qtd_carrinho: 1 }];
@@ -260,18 +274,20 @@ export function PDV() {
 
     const calculateComboPrice = () => {
         if (!activeCombo) return 0;
-        
-        // Base price of the combo itself (usually 0 for rule-based combos)
         let total = activeCombo.preco_venda || 0;
+        
+        const isDoseOrShot = ['Dose', 'Shot'].includes(activeCombo.categoria);
+        const doseGroups = isDoseOrShot ? Array.from(new Set(allDoses.filter(d => d.produto_dose_id === activeCombo.id && d.is_dynamic).map(d => d.grupo_nome || 'Opção Única'))) : [];
 
-        // For each requirement group, find the highest additional price
+        // For each requirement group, find the highest additional price (except for dose liquids)
         tempSelections.forEach(s => {
+            if (doseGroups.includes(s.requirement_name)) return;
+            
             let maxSurcharge = 0;
             s.items.forEach(item => {
                 const prod = produtos.find(p => p.id === item.product_id);
-                if (prod) {
-                    const price = (prod.preco_combo && prod.preco_combo > 0) ? prod.preco_combo : prod.preco_venda;
-                    if (price > maxSurcharge) maxSurcharge = price;
+                if (prod && (prod.preco_combo ?? 0) > 0) {
+                    if (prod.preco_combo! > maxSurcharge) maxSurcharge = prod.preco_combo!;
                 }
             });
             total += maxSurcharge;
@@ -309,14 +325,22 @@ export function PDV() {
     function addComboToCart() {
         if (!activeCombo) return;
         
-        const isValid = allReqs.filter(r => r.combo_id === activeCombo.id).every(r => {
-            const group = tempSelections.find(s => s.requirement_name === r.categoria_nome);
-            const sum = group?.items.reduce((acc, current) => acc + current.quantidade, 0) || 0;
-            return sum >= r.quantidade;
+        const isDoseOrShot = ['Dose', 'Shot'].includes(activeCombo.categoria);
+        const reqs = allReqs.filter(r => r.combo_id === activeCombo.id);
+        const doseGroups = isDoseOrShot ? Array.from(new Set(allDoses.filter(d => d.produto_dose_id === activeCombo.id && d.is_dynamic).map(d => d.grupo_nome || 'Opção Única'))) : [];
+
+        const doseValid = doseGroups.every(g => {
+            const sel = tempSelections.find(s => s.requirement_name === g);
+            return sel?.items.reduce((acc, curr) => acc + curr.quantidade, 0) === 1;
         });
 
-        if (!isValid) {
-            toast.error("Por favor, selecione pelo menos a quantidade mínima de itens para o combo.");
+        const reqsValid = reqs.every(r => {
+            const sel = tempSelections.find(s => s.requirement_name === r.categoria_nome);
+            return (sel?.items.reduce((acc, curr) => acc + curr.quantidade, 0) || 0) >= r.quantidade;
+        });
+
+        if (!doseValid || !reqsValid) {
+            toast.error("Por favor, preencha todos os requisitos (1 item por grupo de dose e o mínimo das categorias).");
             return;
         }
 
@@ -338,9 +362,12 @@ export function PDV() {
             ...prev,
             {
                 ...activeCombo,
+                id: Math.random().toString(36).substr(2, 9),
+                produto_id: activeCombo.id,
                 preco_venda: calculateComboPrice(),
                 preco_custo: calculateComboCusto(),
                 qtd_carrinho: 1,
+                is_combo: true,
                 combo_selections: flatSelections
             }
         ]);
@@ -855,49 +882,50 @@ export function PDV() {
                         </div>
 
                         <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                            {allReqs.filter(r => r.combo_id === activeCombo.id).map(r => {
-                                const group = tempSelections.find(s => s.requirement_name === r.categoria_nome);
-                                const currentSum = group?.items.reduce((acc, curr) => acc + curr.quantidade, 0) || 0;
-                                const isSatisfied = currentSum >= r.quantidade;
+                            {tempSelections.map((s, sIdx) => {
+                                const req = allReqs.find(r => r.combo_id === activeCombo.id && r.categoria_nome === s.requirement_name);
+                                const isDoseGroup = allDoses.some(d => d.produto_dose_id === activeCombo.id && (d.grupo_nome || 'Opção Única') === s.requirement_name);
+                                
+                                const currentSum = s.items.reduce((acc, curr) => acc + curr.quantidade, 0);
+                                const targetQty = req ? req.quantidade : 1;
+                                const isSatisfied = req ? currentSum >= req.quantidade : currentSum === 1;
 
                                 return (
-                                    <div key={r.categoria_nome} className="bg-background/50 p-4 rounded-xl border border-white/5 space-y-3">
+                                    <div key={sIdx} className="bg-background/50 p-4 rounded-xl border border-white/5 space-y-3">
                                         <div className="flex justify-between items-center">
                                             <h3 className="font-bold text-white flex items-center gap-2">
                                                 <span className="w-2 h-4 bg-primary rounded-full shadow-[0_0_10px_rgba(251,191,36,0.5)]" />
-                                                Min. {r.quantidade}x {r.categoria_nome}
+                                                {isDoseGroup ? `Escolha: ${s.requirement_name}` : `Min. ${targetQty}x ${s.requirement_name}`}
                                             </h3>
                                             <div className="flex items-center gap-2">
-                                                <span className={`text-xs font-bold ${isSatisfied ? 'text-green-400' : 'text-primary'}`}>
-                                                    {currentSum} / {r.quantidade}
+                                                <span className={`text-xs font-bold ${currentSum > targetQty && !isDoseGroup ? 'text-red-400' : isSatisfied ? 'text-green-400' : 'text-primary'}`}>
+                                                    {currentSum} / {targetQty}
                                                 </span>
                                                 {isSatisfied && (
-                                                    <span className="text-[10px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter">Ok</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-tighter ${currentSum > targetQty && !isDoseGroup ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                        {currentSum > targetQty && !isDoseGroup ? 'Excedeu' : 'Ok'}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
+
                                         <div className="space-y-2">
-                                            {group?.items.map((item, idx) => {
+                                            {s.items.map((item, idx) => {
                                                 const product = produtos.find(p => p.id === item.product_id);
-                                                const itemPrice = product ? ((product.preco_combo ?? 0) > 0 ? (product.preco_combo ?? 0) : (product.preco_venda ?? 0)) : 0;
+                                                const itemPrice = isDoseGroup ? 0 : (product ? ((product.preco_combo ?? 0) > 0 ? (product.preco_combo ?? 0) : 0) : 0);
+                                                
                                                 return (
                                                     <div key={idx} className="flex justify-between items-center bg-black/40 px-3 py-2 rounded-lg border border-white/5">
                                                         <div className="flex flex-col min-w-0 flex-1">
                                                             <span className="text-sm font-medium text-white/90 truncate mr-2">{product?.nome}</span>
-                                                            {(itemPrice ?? 0) > 0 && (
-                                                                <span className="text-[10px] text-primary font-bold">
-                                                                    + R$ {(itemPrice ?? 0).toFixed(2)}
-                                                                </span>
-                                                            )}
+                                                            <span className={`text-[10px] font-bold ${itemPrice > 0 ? 'text-primary' : 'text-green-400'}`}>
+                                                                {itemPrice > 0 ? `+ R$ ${itemPrice.toFixed(2)}` : 'Incluso'}
+                                                            </span>
                                                         </div>
                                                         <div className="flex items-center gap-1 bg-black/50 rounded-lg p-1 border border-white/5 shrink-0 ml-2">
                                                             <button 
                                                                 onClick={() => {
-                                                                    if (item.quantidade <= 1) {
-                                                                        setTempSelections(prev => prev.map(s => s.requirement_name === r.categoria_nome ? { ...s, items: s.items.filter(i => i.product_id !== item.product_id) } : s));
-                                                                    } else {
-                                                                        setTempSelections(prev => prev.map(s => s.requirement_name === r.categoria_nome ? { ...s, items: s.items.map(i => i.product_id === item.product_id ? { ...i, quantidade: i.quantidade - 1 } : i) } : s));
-                                                                    }
+                                                                    setTempSelections(prev => prev.map((sel, i) => i === sIdx ? { ...sel, items: sel.items.map(it => it.product_id === item.product_id ? { ...it, quantidade: it.quantidade - 1 } : it).filter(it => it.quantidade > 0) } : sel));
                                                                 }} 
                                                                 className="p-1.5 hover:bg-white/10 hover:text-white text-muted-foreground rounded-md transition-colors"
                                                             >
@@ -906,10 +934,14 @@ export function PDV() {
                                                             <span className="text-xs font-bold w-6 text-center text-white">{item.quantidade}</span>
                                                             <button 
                                                                 onClick={() => {
+                                                                    if (isDoseGroup && currentSum >= 1) {
+                                                                        toast.error('Escolha apenas 1 para este grupo.');
+                                                                        return;
+                                                                    }
                                                                     if (product && item.quantidade < product.estoque_atual) {
-                                                                        setTempSelections(prev => prev.map(s => s.requirement_name === r.categoria_nome ? { ...s, items: s.items.map(i => i.product_id === item.product_id ? { ...i, quantidade: i.quantidade + 1 } : i) } : s));
+                                                                        setTempSelections(prev => prev.map((sel, i) => i === sIdx ? { ...sel, items: sel.items.map(it => it.product_id === item.product_id ? { ...it, quantidade: it.quantidade + 1 } : it) } : sel));
                                                                     } else {
-                                                                        toast.error('Estoque insuficiente para este produto.');
+                                                                        toast.error('Estoque insuficiente.');
                                                                     }
                                                                 }} 
                                                                 className="p-1.5 hover:bg-white/10 hover:text-white text-muted-foreground rounded-md transition-colors"
@@ -921,25 +953,30 @@ export function PDV() {
                                                 )
                                             })}
 
-                                            <CustomSelect
-                                                value=""
-                                                onChange={(newId) => {
-                                                    setTempSelections(prev => prev.map(s => {
-                                                        if (s.requirement_name === r.categoria_nome) {
-                                                            return { ...s, items: [...s.items, { product_id: newId, quantidade: 1 }] };
+                                            {(!isDoseGroup || s.items.length === 0) && (
+                                                <CustomSelect
+                                                    value=""
+                                                    onChange={(newId) => {
+                                                        if (isDoseGroup) {
+                                                            setTempSelections(prev => prev.map((sel, i) => i === sIdx ? { ...sel, items: [{ product_id: newId, quantidade: 1 }] } : sel));
+                                                        } else {
+                                                            setTempSelections(prev => prev.map((sel, i) => i === sIdx ? { ...sel, items: [...sel.items, { product_id: newId, quantidade: 1 }] } : sel));
                                                         }
-                                                        return s;
-                                                    }));
-                                                }}
-                                                placeholder="Adicionar produto extra..."
-                                                options={produtos
-                                                    .filter(p => p.categoria === r.categoria_nome && getDisplayEstoque(p) > 0 && !group?.items.some(i => i.product_id === p.id))
-                                                    .map(p => {
-                                                        const price = (p.preco_combo && p.preco_combo > 0) ? p.preco_combo : (p.preco_venda || 0);
-                                                        return { value: p.id, label: `${p.nome} (+ R$ ${price.toFixed(2)})` };
-                                                    })
-                                                }
-                                            />
+                                                    }}
+                                                    placeholder={isDoseGroup ? `Selecione (${s.requirement_name})...` : "Adicionar extra..."}
+                                                    options={
+                                                        isDoseGroup 
+                                                        ? allDoses.filter(d => d.produto_dose_id === activeCombo.id && (d.grupo_nome || 'Opção Única') === s.requirement_name).map(d => {
+                                                            const p = produtos.find(x => x.id === d.produto_garrafa_id);
+                                                            return { value: p?.id || '', label: p?.nome || '???' };
+                                                        })
+                                                        : produtos.filter(p => p.categoria === s.requirement_name && getDisplayEstoque(p) > 0 && !s.items.some(i => i.product_id === p.id)).map(p => {
+                                                            const price = (p.preco_combo && p.preco_combo > 0) ? p.preco_combo : 0;
+                                                            return { value: p.id, label: `${p.nome}${price > 0 ? ` (+ R$ ${price.toFixed(2)})` : ' (Incluso)'}` };
+                                                        })
+                                                    }
+                                                />
+                                            )}
                                         </div>
                                     </div>
                                 );
